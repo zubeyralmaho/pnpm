@@ -236,6 +236,37 @@ test('adding or changing pnpmfile should change pnpmfileChecksum and module stru
   expect(lockfile3).toStrictEqual(lockfile0)
 })
 
+test('--ignore-pnpmfile should not remove pnpmfileChecksum from the lockfile', async () => {
+  const project = prepare({
+    dependencies: {
+      'is-positive': '1.0.0',
+    },
+  })
+
+  const pnpmfile = `
+    function readPackage (pkg) {
+      return pkg
+    }
+
+    module.exports.hooks = { readPackage }
+  `
+  fs.writeFileSync('.pnpmfile.cjs', pnpmfile)
+  await execPnpm(['install'])
+
+  const lockfileWithChecksum = project.readLockfile()
+  const expectedChecksum = createHash(pnpmfile)
+  expect(lockfileWithChecksum.pnpmfileChecksum).toBe(expectedChecksum)
+
+  // Running install with --ignore-pnpmfile should temporarily skip the
+  // pnpmfile but must NOT mutate the recorded pnpmfileChecksum. Tools like
+  // Renovate rely on this so they can install/update without executing the
+  // pnpmfile while still keeping the lockfile in sync.
+  await execPnpm(['install', '--ignore-pnpmfile'])
+
+  const lockfileAfterIgnore = project.readLockfile()
+  expect(lockfileAfterIgnore.pnpmfileChecksum).toBe(expectedChecksum)
+})
+
 test('loading a pnpmfile from a config dependency', async () => {
   prepare({
     dependencies: {

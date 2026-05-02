@@ -447,7 +447,14 @@ export async function mutateModules (
       )
     }
     const packageExtensionsChecksum = hashObjectNullableWithPrefix(opts.packageExtensions)
-    const pnpmfileChecksum = await opts.hooks.calculatePnpmfileChecksum?.()
+    // When the pnpmfile is intentionally skipped (`--ignore-pnpmfile`), reuse
+    // the checksum already stored in the lockfile so this run doesn't appear
+    // to change the pnpmfile setting. Without this, the comparison below would
+    // see `undefined` and trigger a needless full resolution that also wipes
+    // the recorded checksum from the lockfile.
+    const pnpmfileChecksum = opts.ignorePnpmfile
+      ? ctx.wantedLockfile.pnpmfileChecksum
+      : await opts.hooks.calculatePnpmfileChecksum?.()
     const patchedDependencies = opts.ignorePackageManifest
       ? ctx.wantedLockfile.patchedDependencies
       : (opts.patchedDependencies ? await calcPatchHashes(opts.patchedDependencies) : {})
