@@ -67,13 +67,13 @@ test('pnpm clean preserves lockfile by default', () => {
   expect(fs.existsSync('pnpm-lock.yaml')).toBe(true)
 })
 
-test('pnpm clean --lockfile removes lockfile', () => {
+test('pnpm clean --include-lockfile removes lockfile', () => {
   tempDir()
   fs.writeFileSync('package.json', '{}', 'utf8')
   fs.writeFileSync('pnpm-lock.yaml', 'lockfileVersion: 9')
   fs.mkdirSync('node_modules/.pnpm', { recursive: true })
 
-  const result = execPnpmSync(['clean', '--lockfile'])
+  const result = execPnpmSync(['clean', '--include-lockfile'])
   expect(result.status).toBe(0)
 
   expect(fs.existsSync('node_modules/.pnpm')).toBe(false)
@@ -150,7 +150,26 @@ test('pnpm clean does not remove virtual-store-dir outside the project root', ()
   expect(fs.existsSync(path.join(outsideDir, 'data'))).toBe(true)
 })
 
-test('pnpm clean --lockfile removes lockfiles in workspace', () => {
+test('pnpm clean preserves lockfile when "lockfile: true" is set in pnpm-workspace.yaml', () => {
+  preparePackages([
+    { name: 'project-a', version: '1.0.0' },
+  ])
+
+  fs.writeFileSync('package.json', JSON.stringify({ name: 'root', version: '1.0.0' }))
+  writeYamlFileSync('pnpm-workspace.yaml', { packages: ['*'], lockfile: true })
+  fs.writeFileSync('pnpm-lock.yaml', 'lockfileVersion: 9')
+  fs.mkdirSync('node_modules/.pnpm', { recursive: true })
+
+  const result = execPnpmSync(['clean'])
+  expect(result.status).toBe(0)
+
+  // The default `lockfile: true` global setting must NOT be misinterpreted
+  // as the clean command's `--lockfile` flag. The lockfile should remain.
+  expect(fs.existsSync('node_modules/.pnpm')).toBe(false)
+  expect(fs.existsSync('pnpm-lock.yaml')).toBe(true)
+})
+
+test('pnpm clean --include-lockfile removes lockfiles in workspace', () => {
   preparePackages([
     { name: 'project-a', version: '1.0.0' },
     { name: 'project-b', version: '1.0.0' },
@@ -165,7 +184,7 @@ test('pnpm clean --lockfile removes lockfiles in workspace', () => {
     fs.mkdirSync(path.join(dir, 'node_modules', '.pnpm'), { recursive: true })
   }
 
-  const result = execPnpmSync(['clean', '--lockfile'])
+  const result = execPnpmSync(['clean', '--include-lockfile'])
   expect(result.status).toBe(0)
 
   for (const dir of ['.', 'project-a', 'project-b']) {

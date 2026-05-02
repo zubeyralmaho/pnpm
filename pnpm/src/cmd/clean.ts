@@ -12,16 +12,22 @@ export const commandNames = ['clean', 'purge']
 
 export const overridableByScript = true
 
-export const rcOptionsTypes = cliOptionsTypes
+// `include-lockfile` is the only knob exposed by the clean command, and it is
+// intentionally not part of `rcOptionsTypes`. We do NOT reuse the global
+// `lockfile` setting name here because that setting controls whether a
+// lockfile is created during install (default: true). If clean's flag shared
+// the same name, the default-true `lockfile: true` value coming from
+// pnpm-workspace.yaml or .npmrc would silently flip on lockfile deletion.
+export const rcOptionsTypes = (): Record<string, unknown> => ({})
 
 export function cliOptionsTypes (): Record<string, unknown> {
   return {
-    lockfile: Boolean,
+    'include-lockfile': Boolean,
   }
 }
 
 export const shorthands: Record<string, string> = {
-  l: '--lockfile',
+  l: '--include-lockfile',
 }
 
 export function help (): string {
@@ -38,21 +44,21 @@ the script is executed instead of the built-in command.',
         list: [
           {
             description: 'Also remove pnpm-lock.yaml files',
-            name: '--lockfile',
+            name: '--include-lockfile',
             shortAlias: '-l',
           },
         ],
       },
     ],
     url: docsUrl('clean'),
-    usages: ['pnpm clean [--lockfile]'],
+    usages: ['pnpm clean [--include-lockfile]'],
   })
 }
 
 export async function handler (
   opts: {
     dir: string
-    lockfile?: boolean
+    includeLockfile?: boolean
     modulesDir?: string
     virtualStoreDir?: string
     workspaceDir?: string
@@ -61,7 +67,7 @@ export async function handler (
 ): Promise<void> {
   const modulesDir = opts.modulesDir ?? 'node_modules'
   const rootDir = opts.workspaceDir ?? opts.dir
-  const cleanOpts = { modulesDir, removeLockfile: opts.lockfile }
+  const cleanOpts = { modulesDir, removeLockfile: opts.includeLockfile }
   const dirs = await getProjectDirs(opts)
   await Promise.all(dirs.map(cleanProjectDir.bind(null, cleanOpts)))
   if (opts.virtualStoreDir) {
